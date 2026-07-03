@@ -26,10 +26,11 @@ test("без заказов возвращает нулевой заголово
   assert.deepEqual(plan.blocks, []);
 });
 
-test("один заказ с несколькими позициями даёт заголовок и чеклист", () => {
+test("один заказ с несколькими позициями даёт заголовок с датой отгрузки и чеклист", () => {
   const orders: Order[] = [
     {
       id: 12345,
+      shipmentDate: "03-07-2026",
       items: [
         { offerId: "SKU-1", offerName: "Товар А", count: 2 },
         { offerId: "SKU-2", offerName: "Товар Б", count: 1 },
@@ -44,7 +45,7 @@ test("один заказ с несколькими позициями даёт 
   assert.equal(plan.blocks.length, 3);
 
   assert.equal(plan.blocks[0].type, "heading_3");
-  assert.equal(heading3Text(plan.blocks[0]), "Заказ №12345");
+  assert.equal(heading3Text(plan.blocks[0]), "Заказ №12345 — отгрузка 03.07.2026");
 
   assert.equal(plan.blocks[1].type, "to_do");
   assert.equal(toDoText(plan.blocks[1]), "Товар А — SKU-1 × 2");
@@ -54,18 +55,28 @@ test("один заказ с несколькими позициями даёт 
   assert.equal(toDoText(plan.blocks[2]), "Товар Б — SKU-2 × 1");
 });
 
-test("несколько заказов идут друг за другом со своими заголовками", () => {
+test("несколько заказов с разными датами отгрузки идут друг за другом со своими заголовками", () => {
   const orders: Order[] = [
-    { id: 1, items: [{ offerId: "A", offerName: "Первый", count: 1 }] },
-    { id: 2, items: [{ offerId: "B", offerName: "Второй", count: 3 }] },
+    { id: 1, shipmentDate: "03-07-2026", items: [{ offerId: "A", offerName: "Первый", count: 1 }] },
+    { id: 2, shipmentDate: "10-07-2026", items: [{ offerId: "B", offerName: "Второй", count: 3 }] },
   ];
 
   const plan = buildPagePlan(orders, dateParts);
 
   assert.equal(plan.title, "03.07.2026 — 2 заказов");
   assert.equal(plan.blocks.length, 4);
-  assert.equal(heading3Text(plan.blocks[0]), "Заказ №1");
+  assert.equal(heading3Text(plan.blocks[0]), "Заказ №1 — отгрузка 03.07.2026");
   assert.equal(toDoText(plan.blocks[1]), "Первый — A × 1");
-  assert.equal(heading3Text(plan.blocks[2]), "Заказ №2");
+  assert.equal(heading3Text(plan.blocks[2]), "Заказ №2 — отгрузка 10.07.2026");
   assert.equal(toDoText(plan.blocks[3]), "Второй — B × 3");
+});
+
+test("пустая дата отгрузки не добавляет суффикс к заголовку", () => {
+  const orders: Order[] = [
+    { id: 7, shipmentDate: "", items: [{ offerId: "C", offerName: "Третий", count: 1 }] },
+  ];
+
+  const plan = buildPagePlan(orders, dateParts);
+
+  assert.equal(heading3Text(plan.blocks[0]), "Заказ №7");
 });
