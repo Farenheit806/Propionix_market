@@ -34,15 +34,29 @@ async function findPageIdByDate(
   return response.results[0]?.id;
 }
 
-async function hasOrdersNumberProperty(notion: Client, databaseId: string): Promise<boolean> {
-  const database = await notion.databases.retrieve({ database_id: databaseId });
-  const property = (database as { properties?: Record<string, { type?: string }> }).properties?.Orders;
-  return property?.type === "number";
+interface DatabaseSchemaInfo {
+  titlePropertyName: string;
+  hasOrdersNumberProperty: boolean;
 }
 
-function buildProperties(plan: PagePlan, includeOrdersNumber: boolean): PageProperties {
+async function getDatabaseSchemaInfo(notion: Client, databaseId: string): Promise<DatabaseSchemaInfo> {
+  const database = await notion.databases.retrieve({ database_id: databaseId });
+  const properties = (database as { properties?: Record<string, { type?: string }> }).properties ?? {};
+
+  const titlePropertyName = Object.entries(properties).find(([, value]) => value.type === "title")?.[0];
+  if (!titlePropertyName) {
+    throw new Error(`В базе данных Notion (${databaseId}) не найдено свойство типа "title".`);
+  }
+
+  return {
+    titlePropertyName,
+    hasOrdersNumberProperty: properties.Orders?.type === "number",
+  };
+}
+
+function buildProperties(plan: PagePlan, schema: DatabaseSchemaInfo): PageProperties {
   const properties: PageProperties = {
-    Name: {
+    [schema.titlePropertyName]: {
       title: [{ type: "text", text: { content: plan.title } }],
     },
     Date: {
@@ -50,7 +64,7 @@ function buildProperties(plan: PagePlan, includeOrdersNumber: boolean): PageProp
     },
   };
 
-  if (includeOrdersNumber) {
+  if (schema.hasOrdersNumberProperty) {
     properties.Orders = { number: plan.orderCount };
   }
 
@@ -99,8 +113,8 @@ export async function upsertDailyPage(
     return { action: "skipped" };
   }
 
-  const includeOrdersNumber = await hasOrdersNumberProperty(notion, databaseId);
-  const properties = buildProperties(plan, includeOrdersNumber);
+  const schema = await getDatabaseSchemaInfo(notion, databaseId);
+  const properties = buildProperties(plan, schema);
 
   let pageId = existingPageId;
   if (pageId) {

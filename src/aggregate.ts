@@ -1,5 +1,6 @@
 import type { BlockObjectRequest } from "@notionhq/client/build/src/api-endpoints.js";
 import type { DateParts } from "./date.js";
+import { toDisplayDate } from "./date.js";
 
 export interface OrderItem {
   offerId: string;
@@ -9,6 +10,8 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
+  /** DD-MM-YYYY, день отгрузки; может быть пустой строкой, если API его не вернул */
+  shipmentDate: string;
   items: OrderItem[];
 }
 
@@ -20,11 +23,12 @@ export interface PagePlan {
 }
 
 function buildBlocksForOrder(order: Order): BlockObjectRequest[] {
+  const shipmentSuffix = order.shipmentDate ? ` — отгрузка ${toDisplayDate(order.shipmentDate)}` : "";
   const heading: BlockObjectRequest = {
     object: "block",
     type: "heading_3",
     heading_3: {
-      rich_text: [{ type: "text", text: { content: `Заказ №${order.id}` } }],
+      rich_text: [{ type: "text", text: { content: `Заказ №${order.id}${shipmentSuffix}` } }],
     },
   };
 
